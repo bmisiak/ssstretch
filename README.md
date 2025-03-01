@@ -11,27 +11,73 @@ This crate provides Rust bindings for the [Signalsmith Stretch](https://github.c
 
 ## Usage
 
+The library provides a type-safe, generic API with the number of channels known at compile time.
+
+### Basic Usage
+
 ```rust
 use ssstretch::Stretch;
 
-// Create and configure a stretcher instance
-let mut stretch = Stretch::new();
-stretch.preset_default(2, 44100.0); // 2 channels, 44.1kHz sample rate
+// Create a stereo Stretch instance (2 channels)
+let mut stretch = Stretch::<2>::new(44100.0); // 44.1kHz sample rate
 
 // Optional: Set pitch shift (in semitones)
 stretch.set_transpose_semitones(3.0, None); // Shift up by 3 semitones
 
 // Process audio with time stretching
 // Here we're creating output that's 1.5x longer than input (slower)
-let output_len = (input_len as f32 * 1.5) as usize;
-let mut output = vec![vec![0.0f32; output_len]; channels];
+let output_samples = (input_samples as f32 * 1.5) as usize;
+let mut output = [
+    vec![0.0f32; output_samples],
+    vec![0.0f32; output_samples]
+];
 
+// Process using Vec<Vec<f32>> format
 stretch.process_vec(
-    &input,      // Input audio (array of channels)
-    input_len,   // Input length in samples
-    &mut output, // Output buffer
-    output_len,  // Output length in samples
+    &input,                // Input audio (array of channels)
+    input_samples as i32,  // Input length in samples
+    &mut output,           // Output buffer 
+    output_samples as i32  // Output length in samples
 );
+```
+
+### Builder Pattern
+
+For more complex configuration, use the builder pattern:
+
+```rust
+use ssstretch::StretchBuilder;
+
+// Create a 5.1 surround configuration with custom parameters
+let mut stretch = StretchBuilder::<6>::new()
+    .preset_cheaper(44100.0)                    // Use cheaper preset at 44.1kHz
+    .transpose_semitones(-2.0, Some(0.5))       // Shift down 2 semitones
+    .build();                                   // Build the Stretch<6> instance
+
+// Process 6-channel audio
+stretch.process_vec(
+    &input,                // 6-channel input
+    input_samples as i32,
+    &mut output,           // 6-channel output
+    output_samples as i32
+);
+```
+
+### Advanced Usage with Raw Slices
+
+For direct processing with fixed-size arrays:
+
+```rust
+use ssstretch::Stretch;
+
+let mut stretch = Stretch::<2>::new(44100.0);
+
+// Create input and output slices directly
+let input_slices = [&left_channel[..], &right_channel[..]];
+let mut output_slices = [&mut left_output[..], &mut right_output[..]];
+
+// Process with direct slice references
+stretch.process(input_slices, output_slices);
 ```
 
 ## Implementation Details
@@ -40,10 +86,14 @@ This crate uses the [cxx](https://crates.io/crates/cxx) crate to provide safe Ru
 
 ### Key Design Points:
 
-1. Uses type aliases rather than C wrapper functions to maintain a direct connection to the C++ API
-2. Handles template instantiation in C++ to avoid template issues in the FFI boundary
-3. Provides both raw pointer APIs (for integration with audio systems) and convenient Vec-based APIs
-4. Tracks channel count in Rust to work around private members in the C++ library
+1. **Type Safety**: Uses const generics (`Stretch<C>`) to enforce correct channel count at compile time
+2. **Builder Pattern**: Provides a fluent `StretchBuilder<C>` API for clean configuration
+3. **Zero Allocation Processing**: The core API uses fixed-size arrays with no heap allocations during processing
+4. **Direct FFI**: Uses type aliases rather than C wrapper functions for efficient interop with C++
+5. **Flexible API Layers**:
+   - Low-level API with fixed-size arrays for maximum performance
+   - Helper methods for working with Vec-based audio data
+6. **Thread Safety**: The main Stretch type can be safely used across threads
 
 ## Building
 

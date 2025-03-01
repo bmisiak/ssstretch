@@ -21,8 +21,7 @@ fn main() {
     }
     
     // Create a Stretch instance with 2 channels
-    let mut stretch = Stretch::new();
-    stretch.preset_default(2, sample_rate as f32);
+    let mut stretch = Stretch::<2>::new(sample_rate as f32);
     
     // Set pitch shift of 1 octave up (12 semitones)
     stretch.set_transpose_semitones(12.0, None);
