@@ -1,0 +1,5 @@
+/target
+/tmp
+.aider*
+.DS_Store
+o*.md

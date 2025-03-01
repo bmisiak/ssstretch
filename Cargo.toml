@@ -1,0 +1,17 @@
+[package]
+name = "ssstretch"
+version = "0.1.0"
+edition = "2021"
+description = "Rust bindings for the Signalsmith Stretch time-stretching and pitch-shifting library"
+license = "MIT"
+repository = "https://github.com/bmisiak/ssstretch"
+readme = "README.md"
+author = "Brian Misiak"
+keywords = ["audio", "stretch", "time-stretch", "pitch-shift", "signalsmith", "signal-smith"]
+categories = ["external-ffi-bindings", "multimedia::audio", "multimedia"]
+
+[dependencies]
+cxx = "1.0"
+
+[build-dependencies]
+cxx-build = "1.0"
