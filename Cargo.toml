@@ -7,7 +7,7 @@ license = "MIT"
 repository = "https://github.com/bmisiak/ssstretch"
 readme = "README.md"
 author = "Brian Misiak"
-keywords = ["audio", "stretch", "time-stretch", "pitch-shift", "signalsmith", "signal-smith"]
+keywords = ["audio", "stretch", "dsp", "pitch-shift", "signal-smith"]
 categories = ["external-ffi-bindings", "multimedia::audio", "multimedia"]
 
 [dependencies]
