@@ -6,13 +6,13 @@ use crate::ComplexFloat;
 mod backend {
     use super::ComplexFloat;
     use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
-    use rustfft::{FftPlanner, num_complex::Complex32};
+    use rustfft::{FftPlanner, num_complex::Complex};
+    type Cmplx = Complex<f32>;
 
     pub struct FFT {
         size: usize,
-        forward: std::sync::Arc<dyn rustfft::Fft<Complex32>>,
-        inverse: std::sync::Arc<dyn rustfft::Fft<Complex32>>,
-        scratch: Vec<Complex32>,
+        forward: std::sync::Arc<dyn rustfft::Fft<f32>>,
+        inverse: std::sync::Arc<dyn rustfft::Fft<f32>>,
     }
 
     impl FFT {
@@ -20,8 +20,7 @@ mod backend {
             let mut planner = FftPlanner::new();
             let forward = planner.plan_fft_forward(size);
             let inverse = planner.plan_fft_inverse(size);
-            let scratch = vec![Complex32::new(0.0, 0.0); size.max(1)];
-            Self { size, forward, inverse, scratch }
+            Self { size, forward, inverse }
         }
 
         pub fn optimal_size(min_size: usize) -> usize { min_size.next_power_of_two() }
@@ -29,7 +28,7 @@ mod backend {
         pub fn forward(&mut self, input: &[ComplexFloat], output: &mut [ComplexFloat]) {
             assert_eq!(input.len(), self.size);
             assert_eq!(output.len(), self.size);
-            let mut buf: Vec<Complex32> = input.iter().map(|c| Complex32::new(c.re, c.im)).collect();
+            let mut buf: Vec<Cmplx> = input.iter().map(|c| Cmplx::new(c.re, c.im)).collect();
             self.forward.process(&mut buf);
             for (o, c) in output.iter_mut().zip(buf.into_iter()) {
                 *o = ComplexFloat::new(c.re, c.im);
@@ -39,7 +38,7 @@ mod backend {
         pub fn inverse(&mut self, input: &[ComplexFloat], output: &mut [ComplexFloat]) {
             assert_eq!(input.len(), self.size);
             assert_eq!(output.len(), self.size);
-            let mut buf: Vec<Complex32> = input.iter().map(|c| Complex32::new(c.re, c.im)).collect();
+            let mut buf: Vec<Cmplx> = input.iter().map(|c| Cmplx::new(c.re, c.im)).collect();
             self.inverse.process(&mut buf);
             for (o, c) in output.iter_mut().zip(buf.into_iter()) {
                 *o = ComplexFloat::new(c.re / self.size as f32, c.im / self.size as f32);
@@ -51,8 +50,8 @@ mod backend {
         size: usize,
         r2c: std::sync::Arc<dyn RealToComplex<f32>>, 
         c2r: std::sync::Arc<dyn ComplexToReal<f32>>, 
-        scratch_fwd: Vec<f32>,
-        scratch_inv: Vec<f32>,
+        scratch_fwd: Vec<Cmplx>,
+        scratch_inv: Vec<Cmplx>,
     }
 
     impl RealFFT {
@@ -81,7 +80,7 @@ mod backend {
             assert_eq!(input.len(), self.size / 2 + 1);
             assert_eq!(output.len(), self.size);
             let mut in_buf = self.c2r.make_input_vec();
-            for (i, c) in input.iter().enumerate() { in_buf[i] = rustfft::num_complex::Complex32::new(c.re, c.im); }
+            for (i, c) in input.iter().enumerate() { in_buf[i] = Cmplx::new(c.re, c.im); }
             let mut out_buf = self.c2r.make_output_vec();
             self.c2r.process_with_scratch(&mut in_buf, &mut out_buf, &mut self.scratch_inv).unwrap();
             let scale = 1.0 / self.size as f32;

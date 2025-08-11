@@ -42,7 +42,7 @@ fn main() {
     println!("=======================");
     
     // Generate a short musical phrase
-    let phrase_length = sample_rate as usize / 2; // 0.5 seconds
+    let phrase_length = sample_rate as usize / 2; // 0.5 seconds (target length)
     let mut phrase = Vec::with_capacity(phrase_length);
     
     // Generate a simple sine wave melody
@@ -57,7 +57,9 @@ fn main() {
     }
     
     // Add 0.5 seconds of silence for the echo to fade
-    let mut output = vec![0.0; phrase_length * 2];
+    // Use the actual phrase length (could be slightly less due to integer division)
+    let actual_len = phrase.len();
+    let mut output = vec![0.0; actual_len * 2];
     
     // Reset the delay line
     let mut echo_delay = Delay::new(max_delay_samples);
@@ -67,8 +69,8 @@ fn main() {
     let echo_feedback = 0.5; // 50% feedback
     
     // Process each sample through the delay line with feedback
-    for i in 0..phrase_length * 2 {
-        let input_sample = if i < phrase_length { phrase[i] } else { 0.0 };
+    for i in 0..actual_len * 2 {
+        let input_sample = if i < actual_len { phrase[i] } else { 0.0 };
         
         // Get the delayed output
         let delayed = echo_delay.process(input_sample, echo_delay_samples);
@@ -92,7 +94,7 @@ fn main() {
     println!("...");
     
     // Sample near the echo point
-    let echo_point = phrase_length + (echo_delay_samples as usize) - 5;
+    let echo_point = actual_len + (echo_delay_samples as usize) - 5;
     for i in echo_point..echo_point + 10 {
         if i < output.len() {
             println!("{:<10} {:<15.6}", i, output[i]);
