@@ -7,6 +7,7 @@
 pub use stretch::Stretch;
 pub use stretch::StretchBuilder;
 pub use dsp::filters::BiquadFilter;
+pub use num_complex::Complex32 as ComplexFloat;
 
 // Import submodules
 pub mod stretch;

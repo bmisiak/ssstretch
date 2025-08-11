@@ -52,7 +52,8 @@ inline std::unique_ptr<SignalsmithStretchFloat> new_signalsmith_stretch() {
 }
 
 inline std::unique_ptr<SignalsmithStretchFloat> new_signalsmith_stretch_with_seed(int64_t seed) {
-    return std::make_unique<SignalsmithStretchFloat>(static_cast<long>(seed));
+    // Construct with a 64-bit seed to avoid truncation on platforms where long is 32-bit
+    return std::make_unique<SignalsmithStretchFloat>(static_cast<long long>(seed));
 }
 
 // Helper for handling buffer views

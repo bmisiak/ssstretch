@@ -164,14 +164,15 @@ impl<const CHANNELS: usize> Stretch<CHANNELS> {
         let input_samples = input_channels[0].len() as i32;
         let output_samples = output_channels[0].len() as i32;
 
-        debug_assert!(
+        // Enforce per-channel consistency in all builds
+        assert!(
             input_channels
                 .iter()
                 .all(|samples| samples.len() == input_samples as usize),
             "input channels vary in sample length"
         );
 
-        debug_assert!(
+        assert!(
             output_channels
                 .iter()
                 .all(|samples| samples.len() == output_samples as usize),
@@ -321,9 +322,33 @@ impl<const C: usize> Stretch<C> {
             outputs.len()
         );
 
+        // Validate that each input channel has at least input_samples
+        let required_in = input_samples as usize;
+        for (i, ch) in inputs.iter().enumerate() {
+            assert!(
+                ch.len() >= required_in,
+                "inputs[{}] length {} < required input_samples {}",
+                i,
+                ch.len(),
+                required_in
+            );
+        }
+
         // Ensure output vectors have enough capacity
         for channel in outputs.iter_mut() {
             channel.resize(output_samples as usize, 0.0);
+        }
+
+        // Validate that each output channel has at least output_samples
+        let required_out = output_samples as usize;
+        for (i, ch) in outputs.iter().enumerate() {
+            assert!(
+                ch.len() >= required_out,
+                "outputs[{}] length {} < required output_samples {}",
+                i,
+                ch.len(),
+                required_out
+            );
         }
 
         // Create arrays of pointers to channel data
@@ -363,6 +388,18 @@ impl<const C: usize> Stretch<C> {
             inputs.len()
         );
 
+        // Validate that each input channel has at least input_samples
+        let required_in = input_samples as usize;
+        for (i, ch) in inputs.iter().enumerate() {
+            assert!(
+                ch.len() >= required_in,
+                "inputs[{}] length {} < required input_samples {}",
+                i,
+                ch.len(),
+                required_in
+            );
+        }
+
         // Create arrays of pointers to channel data
         let mut input_ptrs = Vec::with_capacity(C);
 
@@ -391,6 +428,18 @@ impl<const C: usize> Stretch<C> {
         // Ensure output vectors have enough capacity
         for channel in outputs.iter_mut() {
             channel.resize(output_samples as usize, 0.0);
+        }
+
+        // Validate that each output channel has at least output_samples
+        let required_out = output_samples as usize;
+        for (i, ch) in outputs.iter().enumerate() {
+            assert!(
+                ch.len() >= required_out,
+                "outputs[{}] length {} < required output_samples {}",
+                i,
+                ch.len(),
+                required_out
+            );
         }
 
         // Create arrays of pointers to channel data

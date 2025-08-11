@@ -1,7 +1,7 @@
 #[cxx::bridge]
 pub mod bindings {
     unsafe extern "C++" {
-        include!("ssstretch/src/bridge.h");
+        include!("bridge.h");
 
         //////////////////////////
         // Type aliases for the DSP components
