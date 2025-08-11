@@ -1,168 +1,154 @@
-# ssstretch - Rust bindings for Signalsmith Audio DSP
+ssstretch
+=========
 
-This crate provides Rust bindings for the [Signalsmith Audio DSP](https://github.com/Signalsmith-Audio/signalsmith-stretch) library, including time-stretching, pitch-shifting, filters, FFT, and other audio processing components.
+Rust bindings for the Signalsmith Stretch library: high‑quality time‑stretching and pitch‑shifting, with a small binding to its biquad filters.
 
-## Features
+- Core: safe Rust API over the C++ Signalsmith Stretch implementation
+- Also available: `BiquadFilter` for simple IIR filtering
+- Optional: a Rust‑native FFT backend (for examples and convenience) behind a feature flag
 
-### Core Features
-- High-quality time-stretching and pitch-shifting with the Signalsmith Stretch algorithm
-- Audio DSP components including:
-  - Fast Fourier Transform (FFT) with complex and real variants
-  - Biquad filters with multiple filter types and design methods
-  - Delay lines with fractional sample interpolation
-  - Window functions for spectral processing
-- Type-safe Rust API with const generics for compile-time safety
-- Zero-allocation processing options for real-time audio
-- Builder patterns for clean configuration
+Links
+- Signalsmith Stretch: [github.com/Signalsmith-Audio/signalsmith-stretch](https://github.com/Signalsmith-Audio/signalsmith-stretch)
+- cxx (Rust/C++ interop): [crates.io/crates/cxx](https://crates.io/crates/cxx)
 
-### Implementation Quality
-- Configurable parameters for sound quality vs. CPU usage
-- Safe Rust API over the C++ implementation
-- Convenience functions for common use cases
+Install
+-------
 
-## Usage
+Add to your Cargo.toml:
 
-The library provides modular components that can be used independently or together.
+```toml
+[dependencies]
+ssstretch = "0.1"
+```
 
-### Time Stretching and Pitch Shifting
+Optional FFT support (pure Rust, not via C++):
+
+```toml
+[dependencies]
+ssstretch = { version = "0.1", features = ["fft-rust"] }
+```
+
+Requirements
+------------
+
+- A C++14 (or newer) compiler toolchain (needed to build the C++ Stretch library via cxx)
+- If you’re developing from a git clone of this repo: initialize the submodule once
+
+```bash
+git submodule update --init --recursive
+```
+
+Quick start: time‑stretch + pitch‑shift
+---------------------------------------
 
 ```rust
 use ssstretch::Stretch;
 
-// Create a stereo Stretch instance (2 channels)
-let mut stretch = Stretch::<2>::new(44100.0); // 44.1kHz sample rate
+// Stereo stretcher for 44.1 kHz
+let mut stretch = Stretch::<2>::new(44_100.0);
 
-// Optional: Set pitch shift (in semitones)
-stretch.set_transpose_semitones(3.0, None); // Shift up by 3 semitones
+// Optional pitch shift: +3 semitones (tonality limit 0.0 = off)
+stretch.set_transpose_semitones(3.0, None);
 
-// Process audio with time stretching
-// Here we're creating output that's 1.5x longer than input (slower)
-let output_samples = (input_samples as f32 * 1.5) as usize;
-let mut output = [
-    vec![0.0f32; output_samples],
-    vec![0.0f32; output_samples]
-];
+// Input: 2 channels of N samples
+let input: [Vec<f32>; 2] = [left, right];
 
-// Process using Vec<Vec<f32>> format
-stretch.process_vec(
-    &input,                // Input audio (array of channels)
-    input_samples as i32,  // Input length in samples
-    &mut output,           // Output buffer
-    output_samples as i32  // Output length in samples
-);
+// Choose output length; this sets the time‑stretch ratio
+let out_len = (input[0].len() as f32 * 1.5) as i32; // 1.5× slower
+let mut output = [vec![0.0; out_len as usize], vec![0.0; out_len as usize]];
+
+stretch.process_vec(&input, input[0].len() as i32, &mut output, out_len);
+
+// Optional: inspect algorithm latencies
+let in_lat = stretch.input_latency();
+let out_lat = stretch.output_latency();
 ```
 
-### Biquad Filter Example
+Pitch control
+-------------
+
+```rust
+// Frequency multiplier (1.0 = unchanged)
+stretch.set_transpose_factor(1.1225, None); // ~= +2 semitones
+
+// Or semitones directly
+stretch.set_transpose_semitones(-7.0, Some(0.5)); // down a fifth, with a tonality limit
+```
+
+Biquad filter (binding)
+-----------------------
 
 ```rust
 use ssstretch::dsp::filters::{BiquadFilter, BiquadDesign};
 
-// Create a biquad filter
 let mut filter = BiquadFilter::new();
 
-// Configure as lowpass filter at 1kHz with Q of 0.7
-// (normalized frequency = frequency / sample_rate)
-let sample_rate = 44100.0;
-let normalized_freq = 1000.0 / sample_rate;
-filter.lowpass(normalized_freq, 0.7, Some(BiquadDesign::Cookbook));
+// Note: frequency is normalized (Hz / sample_rate)
+let fs = 44_100.0;
+filter.lowpass(1_000.0 / fs, 0.7, Some(BiquadDesign::Cookbook));
 
-// Process a buffer of audio
-let input = vec![1.0, 0.0, 0.0, 0.0, 0.0]; // Impulse 
-let mut output = vec![0.0; 5];
+let input = vec![1.0, 0.0, 0.0, 0.0];
+let mut output = vec![0.0; input.len()];
 filter.process_buffer(&input, &mut output);
 ```
 
-### FFT Example
+Optional FFT (Rust backend)
+---------------------------
 
-```rust
-use ssstretch::dsp::fft::RealFFT;
-use ssstretch::ComplexFloat;
+FFT is not bound from the C++ library. If you enable the `fft-rust` feature, the crate exposes a small adapter over `rustfft`/`realfft` for convenience in examples:
 
-// Create a real FFT processor
-let fft_size = 1024;
-let mut fft = RealFFT::new(fft_size);
-
-// Create input/output buffers
-let mut input = vec![0.0; fft_size as usize];
-let mut output = vec![ComplexFloat::new(0.0, 0.0); (fft_size/2 + 1) as usize];
-
-// Fill input with audio data...
-
-// Perform forward FFT (time domain to frequency domain)
-fft.forward(&input, &mut output);
-
-// Process the spectrum...
-
-// Convert back to time domain with inverse FFT
-fft.inverse(&output, &mut input);
+```bash
+cargo run --example fft_example --features fft-rust
 ```
 
-### Delay Line Example
+Examples
+--------
 
-```rust
-use ssstretch::dsp::delay::Delay;
+- `simple_stretch.rs`: basic stretch + pitch shift
+- `interleaved_stretch.rs`: de‑interleave, process, re‑interleave
+- `builder_pattern.rs`: custom configuration
+- `filter_example.rs`: biquad usage
+- `fft_example.rs`: requires `--features fft-rust`
+- `delay_example.rs`: demo of a small Rust delay (not part of the C++ binding)
 
-// Create a delay line with maximum 1 second delay at 44.1kHz
-let mut delay = Delay::new(44100);
+API at a glance
+---------------
 
-// Process 500ms echo with 50% feedback
-let echo_samples = 22050.0; // 500ms at 44.1kHz
-let feedback = 0.5;
+- `Stretch<C>`: main processor for `C` channels
+  - `new(sample_rate)`, `with_seed(seed, sample_rate)`
+  - `process(&[&[f32]; C], &mut [&mut [f32]; C])`
+  - `process_vec(&[Vec<f32>], in_samples, &mut [Vec<f32>], out_samples)`
+  - `seek`, `flush`, `reset`
+  - `set_transpose_factor`, `set_transpose_semitones`
+  - `block_samples`, `interval_samples`, `input_latency`, `output_latency`
+- `BiquadFilter`: lowpass/highpass/bandpass/notch/peak/low_shelf/high_shelf/allpass
 
-// Process input sample with echo
-for input_sample in input_signal {
-    // Get the delayed output
-    let delayed = delay.process(input_sample, echo_samples);
-    
-    // Mix original with echo
-    let output_sample = input_sample + delayed * feedback;
-    
-    // Feed back into the delay line
-    delay.process(output_sample * feedback, echo_samples);
-    
-    // Output the mixed signal
-    output_signal.push(output_sample);
-}
-```
+Notes on safety and buffers
+---------------------------
 
-## Implementation Details
+- Channel count is a compile‑time constant (`Stretch::<C>`). The API checks channel counts and per‑channel lengths.
+- All input channels must have the same length; likewise for output channels. Mismatches will panic with a clear message.
+- The time‑stretch ratio is defined by your chosen in/out lengths (there’s no separate “ratio” parameter).
 
-This crate uses the [cxx](https://crates.io/crates/cxx) crate to provide safe Rust bindings to the C++ library. The C++ template classes are wrapped with type aliases and exposed through the cxx FFI boundary.
-
-### Key Design Points:
-
-1. **Modular Components**: Each DSP component can be used independently
-2. **Type Safety**: Uses const generics for compile-time safety (e.g., `Stretch<C>`)
-3. **Builder Pattern**: Provides fluent APIs for clean configuration
-4. **Zero Allocation Processing**: Core APIs use fixed-size arrays with no heap allocations during processing
-5. **Direct FFI**: Uses type aliases rather than C wrapper functions for efficient interop with C++
-6. **Flexible API Layers**:
-   - Low-level APIs with fixed-size arrays for maximum performance
-   - Helper methods for working with Vec-based audio data
-7. **Thread Safety**: Most types can be safely used across threads
-
-## Building
-
-The library requires a C++ compiler that supports C++14 or newer.
+Build and test
+--------------
 
 ```bash
 cargo build
+cargo build --examples
+cargo test
+
+# If you are building from a fresh git clone
+git submodule update --init --recursive
 ```
 
-## Examples
+License
+-------
 
-See the `examples/` directory for sample code demonstrating how to use the library:
+MIT
 
-- `simple_stretch.rs` - Basic time stretching
-- `filter_example.rs` - Using biquad filters
-- `fft_example.rs` - Performing spectral analysis with FFT
-- `delay_example.rs` - Creating echo effects with delay lines
+Acknowledgements
+----------------
 
-## License
-
-This crate is available under the MIT License, see LICENSE for details.
-
-## Acknowledgments
-
-- [Signalsmith Audio](https://signalsmith-audio.co.uk/) for the original C++ DSP library
-- The [cxx](https://crates.io/crates/cxx) crate for making Rust/C++ interop safer and easier
+- Signalsmith Audio for the original C++ Stretch implementation
+- The `cxx` project for safe Rust/C++ interop

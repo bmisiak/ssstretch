@@ -13,6 +13,17 @@ categories = ["external-ffi-bindings", "multimedia::audio", "multimedia"]
 [dependencies]
 cxx = "1.0"
 num-complex = "0.4"
+rustfft = { version = "6", optional = true }
+realfft = { version = "3", optional = true }
 
 [build-dependencies]
 cxx-build = "1.0"
+
+[features]
+default = []
+fft-rust = ["rustfft", "realfft"]
+
+[[example]]
+name = "fft_example"
+path = "examples/fft_example.rs"
+required-features = ["fft-rust"]
